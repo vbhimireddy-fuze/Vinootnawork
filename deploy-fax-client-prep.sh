@@ -59,7 +59,7 @@ shift
 done
 
 case $faxcfg_path in
-  AUTO|Auto)
+  AUTO|Auto|auto)
     faxcfg=$(find_faxcfg)
     echo "Proceeding with ${faxcfg} - detected by this script.";;
   [/~]*)
@@ -78,12 +78,12 @@ then
 fi
 
 case $count in
-  Off|OFF)
+  Off|OFF|off)
     repeat; echo "BEFORE:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat
     sed -i -n 'p; /^NUM_INCOMING_CHANNELS/s/^/#PREP/p' ${faxcfg}
     sed -i '/^NUM_INCOMING_CHANNELS/c\NUM_INCOMING_CHANNELS 0' ${faxcfg}
     repeat; echo "AFTER SED OFF:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat;;
-  On|ON)
+  On|ON|on)
     repeat; echo "BEFORE:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat
     sed -i '/NUM_INCOMING_CHANNELS.*0/d' ${faxcfg}
     sed -i '/NUM_INCOMING_CHANNELS/s/^#PREP//g' ${faxcfg}
