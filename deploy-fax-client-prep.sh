@@ -37,8 +37,6 @@ if [ $(whoami) != "root" ]
   then echo "Please run this script as root user"
 fi
 
-echo -e "$(repeat)\nWARNING: This script will also restart the commetrex_fax_client services running on this machine.\n$(repeat)"; sleep 2
-
 if [ "$#" -ne 4 ]; then show_usage; exit; fi
 
 while [ ! -z "$1" ]; do
@@ -98,6 +96,8 @@ case $count in
     sed -i "/^NUM_INCOMING_CHANNELS/c\NUM_INCOMING_CHANNELS $count" ${faxcfg}
     repeat; echo "AFTER SED ON WITH NEW NUM:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat;;
 esac
+
+echo -e "$(repeat)\nWARNING: This script will also restart the commetrex_fax_client services running on this machine.\n$(repeat)"; sleep 2
 
 chown ipbx:ipbx /tmp/.fax.out && chmod u+w /tmp/.fax.out
 
