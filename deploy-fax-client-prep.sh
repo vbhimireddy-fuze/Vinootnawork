@@ -81,12 +81,12 @@ fi
 
 case $count in
   Off|OFF|off)
-    repeat; echo "BEFORE:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat
+    repeat; echo "BEFORE:"; grep NUM_INCOMING_CHANNELS ${faxcfg}
     sed -i -n 'p; /^NUM_INCOMING_CHANNELS/s/^/#PREP/p' ${faxcfg}
     sed -i '/^NUM_INCOMING_CHANNELS/c\NUM_INCOMING_CHANNELS 0' ${faxcfg}
-    repeat; echo "AFTER SED OFF:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat ;;
+    repeat; echo "AFTER SED OFF:"; grep NUM_INCOMING_CHANNELS ${faxcfg} ;;
   On|ON|on)
-    repeat; echo "BEFORE:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat
+    repeat; echo "BEFORE:"; grep NUM_INCOMING_CHANNELS ${faxcfg}
     if grep "#PREP" ${faxcfg}
     then 
       sed -i '/NUM_INCOMING_CHANNELS.*0/d' ${faxcfg}
