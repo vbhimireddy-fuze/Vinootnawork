@@ -1,7 +1,11 @@
 #!/bin/bash
 
-find_faxcfg () {
-  if [ $(ps aux | grep commetrex_fax_client | grep -v grep | wc -l) -eq 0 ] ; then echo -e "Unable to detect fax.cfg as commetrex_fax_client is not running."; exit; fi
+function find_faxcfg() {
+  if [ $(ps aux | grep commetrex_fax_client | grep -v grep | wc -l) -eq 0 ]
+  then
+    echo -e "Unable to detect fax.cfg as commetrex_fax_client is not running."
+    exit
+  fi
   FPID=$(ps aux | grep commetrex_fax_client | grep -v grep | head -1 | awk '{print $2}')
   FDIR=$(ls -l /proc/${FPID}/cwd 2>/dev/null | awk '{print $NF}')
 
@@ -9,59 +13,91 @@ find_faxcfg () {
   echo $FAXCFG
 }
 
+function repeat() {
+  for i in  {1..120}; do echo -n "-"; done
+  echo
+}
+
+function show_usage (){
+  repeat
+  printf "Usage:\n$0 -f [params] -c [params]\n"
+  repeat
+  printf "Options:\n"
+  printf " -f|--file, full path where file.cfg is located. This accepts AUTO if you want to auto-detect the location.\n"
+  printf " -c|--count, count of NUM_INCOMING_CHANNELS. This accepts 3 values - ON, OFF, number.\n"
+  repeat
+  printf "For example:\n   To auto-detect fax.cfg location and set NUM_INCOMING_CHANNELS to 0 use below command:\n\t$0 -f AUTO -c OFF\n"
+  printf "   To manually enter fax.cfg location and set NUM_INCOMING_CHANNELS to the last known config, use below command:\n\t$0 -f /path/to/fax.cfg -c ON\n"
+  printf "   To manually enter fax.cfg location and set NUM_INCOMING_CHANNELS to a desired number, say 75, use below command:\n\t$0 -f /path/to/fax.cfg -c 75\n"
+  repeat
+  exit 5
+}
+
 if [ $(whoami) != "root" ]
   then echo "Please run this script as root user"
-  exit 1
 fi
 
-# They know they run it manually, it good to ask but....
-# - this will break if you call it from another script
-while true; do
-  read -p 'This script will also restart fax client. Do you wish to proceed? Y/N? ' yn
-  case $yn in
-    [Yy]* ) break;;
-    [Nn]* ) exit;;
-    * ) echo "Please answer yes or no.";;
+echo -e "$(repeat)\nWARNING: This script will also restart the commetrex_fax_client services running on this machine.\n$(repeat)"; sleep 2
+
+if [ "$#" -ne 4 ]; then show_usage; exit; fi
+
+while [ ! -z "$1" ]; do
+  case "$1" in
+     --file|-f)
+         shift
+         faxcfg_path=$1
+         echo "File location entered: $1"
+         ;;
+     --count|-c)
+         shift
+         count=$1
+         echo "NUM_INCOMING_CHANNELS count: $1"
+         ;;
+     *)
+        show_usage
+        ;;
   esac
+shift
 done
 
-#It's nice to ask but you can make in a different way:
-# - ask for a paramater (filecfg)
-# - if empty try the self discovery (very nice but I would avoid it, devs are strange they might change the config file name)
-# verify that the file contains NUM_INCOMING_CHANNELS, if not is not a our config file exit
-while true; do
-  read -p 'Press A if you want this script automatically locate fax.cfg or B if you would like to manually input fax.cfg location: ' AB
-  case $AB in
-    [Aa] )
-      faxcfg=$(find_faxcfg)
-      if [[ "${faxcfg}" == *"Unable"* ]]; then 
-        read -p "${faxcfg} Enter full fax.cfg location (example - /var/lib/fax.cfg): " faxcfg; 
-      else 
-        echo "Proceeding with ${faxcfg} - detected by this script."; fi
-      break;;
-    [Bb] )
-      # If you ask them to write it you must verify if is correct
-      while true; do
-        read -p 'Enter full fax.cfg location (example - /var/lib/fax.cfg): ' faxcfg
-        [ -f $faxcfg ] && break;; || echo "File not found"
-      break;;
-    * ) echo "Please choose A or B";;
-  esac
-done
+case $faxcfg_path in
+  AUTO|Auto)
+    faxcfg=$(find_faxcfg)
+    echo "Proceeding with ${faxcfg} - detected by this script.";;
+  [/~]*)
+    if [ -f $faxcfg_path ] ; then faxcfg=$faxcfg_path ; else echo "$faxcfg_path is non-existent; hence exiting"; exit; fi;;
+    echo $faxcfg_path;;
+  *) 
+    show_usage;;
+esac
 
-#Better to check before 
+echo "Current NUM_INCOMING_CHANNELS = $(grep -v '^#' ${faxcfg} | grep -i NUM_INCOMING_CHANNELS)"
+
 if [ $(grep -v '^#' ${faxcfg} | grep -i NUM_INCOMING_CHANNELS | wc -l) -gt 1 ]
 then
   echo "Your ${faxcfg} has multiple uncommented NUM_INCOMING_CHANNELS entries. Hence exiting..."
   exit
 fi
 
-
-echo "Current NUM_INCOMING_CHANNELS = $(grep -v '^#' ${faxcfg} | grep -i NUM_INCOMING_CHANNELS)"
-#avoid it ask for a parameter (on/off/number) this will break if called from another script
-# on is the old value/off is 0/num is the number of channels they want
-read -p 'Enter number for NUM_INCOMING_CHANNELS (Enter 0  prior to any deployment activity or a desired number if you are restoring services): ' NIC
-
+case $count in
+  Off|OFF)
+    repeat; echo "BEFORE:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat
+    sed -i -n 'p; /^NUM_INCOMING_CHANNELS/s/^/#PREP/p' ${faxcfg}
+    sed -i '/^NUM_INCOMING_CHANNELS/c\NUM_INCOMING_CHANNELS 0' ${faxcfg}
+    repeat; echo "AFTER SED OFF:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat;;
+  On|ON)
+    repeat; echo "BEFORE:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat
+    sed -i '/NUM_INCOMING_CHANNELS.*0/d' ${faxcfg}
+    sed -i '/NUM_INCOMING_CHANNELS/s/^#PREP//g' ${faxcfg}
+    repeat; echo "AFTER SED ON WITH OLD NUM:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat;;
+  ''|*[!0-9]*)
+    show_usage;;
+  *)
+    repeat; echo "BEFORE:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat
+    sed -i -n 'p; /^NUM_INCOMING_CHANNELS/s/^/#PREP/p' ${faxcfg}
+    sed -i "/^NUM_INCOMING_CHANNELS/c\NUM_INCOMING_CHANNELS $count" ${faxcfg}
+    repeat; echo "AFTER SED ON WITH NEW NUM:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat;;
+esac
 
 chown ipbx:ipbx /tmp/.fax.out && chmod u+w /tmp/.fax.out
 
@@ -70,7 +106,6 @@ sudo -i -u ipbx bash << EOF
   echo "Switching now to \$(whoami) and stopping faxclient"
   /apps/ipbx/commetrexfax/faxclientservices.sh stop
 EOF
-#give more time to die 3 seconds is a bit short, more like 30
 sleep 3 && echo "Switching back to $(whoami)"
 
 if [ $(ps aux | grep commetrex_fax_client | grep -v grep | wc -l) -gt 0 ]
@@ -79,33 +114,23 @@ then
   echo "Forcefully killed fax client and proceeding"
 fi
 
-#you lose the previous value
-sed -i "/^NUM_INCOMING_CHANNELS/c\NUM_INCOMING_CHANNELS ${NIC}" ${faxcfg}
-
 echo "Currently $(whoami)"
 sudo -i -u ipbx bash << EOF
   echo "Switching now to \$(whoami) and starting faxclient"
-  /apps/ipbx/commetrexfax/faxclientservices.sh start
+  /apps/ipbx/commetrexfax/faxclientservices.sh start >/tmp/startup.out 2>&1
+  ECODE=$?
 EOF
-sleep 3 && echo "Switching back to $(whoami)"
 
-
-sleep 60
+sleep 10 && echo "Switching back to $(whoami)"
 
 if [ $(ps aux | grep commetrex_fax_client | grep -v grep | wc -l) -gt 0 ]
 then
   echo "Started commetrex_fax_client.."
-  exit
 fi
 
 /apps/ipbx/commetrexfax/faxclientservices.sh status
 
-#I'm not sure about the $? of this script. to be automated if needs an exit code
-#if the line up fails you continue, the exit code is 0 (all good which is not)
-# called from another script I need to know the exit code
+egrep -i error\|fail\|denied /tmp/startup.out || echo "NO ERRORS ON STARTUP"
+rm -f /tmp/startup.out
 
-#redundant
-echo "Status of commetrex_fax_client:"
-ps aux | grep commetrex_fax_client | grep -v grep
-
-
+exit ${ECODE}
