@@ -63,8 +63,8 @@ case $faxcfg_path in
     faxcfg=$(find_faxcfg)
     echo "Proceeding with ${faxcfg} - detected by this script.";;
   [/~]*)
-    if [ -f $faxcfg_path ] ; then faxcfg=$faxcfg_path ; else echo "$faxcfg_path is non-existent; hence exiting"; exit; fi;;
-    echo $faxcfg_path;;
+    if [ -f $faxcfg_path ] ; then faxcfg=$faxcfg_path ; else echo "$faxcfg_path is non-existent; hence exiting"; exit; fi
+    echo $faxcfg_path ;;
   *) 
     show_usage;;
 esac
