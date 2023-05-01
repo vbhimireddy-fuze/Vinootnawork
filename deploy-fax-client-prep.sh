@@ -23,7 +23,7 @@ function show_usage (){
   printf "Usage:\n$0 -f [params] -c [params]\n"
   repeat
   printf "Options:\n"
-  printf " -f|--file, full path where file.cfg is located. This accepts AUTO if you want to auto-detect the location.\n"
+  printf " -f|--file, full path where fax.cfg is located. This accepts AUTO if you want to auto-detect the location.\n"
   printf " -c|--count, count of NUM_INCOMING_CHANNELS. This accepts 3 values - ON, OFF, number.\n"
   repeat
   printf "For example:\n   To auto-detect fax.cfg location and set NUM_INCOMING_CHANNELS to 0 use below command:\n\t$0 -f AUTO -c OFF\n"
@@ -51,7 +51,7 @@ while [ ! -z "$1" ]; do
      --count|-c)
          shift
          count=$1
-         echo "NUM_INCOMING_CHANNELS count: $1"
+         echo "Intended NUM_INCOMING_CHANNELS count: $1"
          ;;
      *)
         show_usage
@@ -87,9 +87,15 @@ case $count in
     repeat; echo "AFTER SED OFF:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat ;;
   On|ON|on)
     repeat; echo "BEFORE:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat
-    sed -i '/NUM_INCOMING_CHANNELS.*0/d' ${faxcfg}
-    sed -i '/NUM_INCOMING_CHANNELS/s/^#PREP//g' ${faxcfg}
-    repeat; echo "AFTER SED ON WITH OLD NUM:"; grep NUM_INCOMING_CHANNELS ${faxcfg} ;;
+    if grep "#PREP" ${faxcfg}
+    then 
+      sed -i '/NUM_INCOMING_CHANNELS.*0/d' ${faxcfg}
+      sed -i '/NUM_INCOMING_CHANNELS/s/^#PREP//g' ${faxcfg}
+      repeat; echo "AFTER SED ON WITH OLD NUM:"; grep NUM_INCOMING_CHANNELS ${faxcfg}
+    else
+      repeat; echo "Unable to find last known config for fax.cfg. Hence exiting."
+      exit
+    fi ;;
   ''|*[!0-9]*)
     show_usage;;
   *)
@@ -121,7 +127,7 @@ sudo -i -u ipbx bash << EOF
   ECODE=$?
 EOF
 
-sleep 10
+sleep 120
 
 if [ $(ps aux | grep commetrex_fax_client | grep -v grep | wc -l) -gt 0 ]
 then
@@ -131,7 +137,7 @@ fi
 /apps/ipbx/commetrexfax/faxclientservices.sh status
 
 egrep -i error\|fail\|denied /tmp/f_startup.out || echo "NO ERRORS FOUND ON FAX SERVICES STARTUP LOGS"
-rm -vf /tmp/f_s*.out
+rm -f /tmp/f_s*.out
 
 repeat
 
