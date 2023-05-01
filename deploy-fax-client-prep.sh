@@ -39,6 +39,8 @@ fi
 
 if [ "$#" -ne 4 ]; then show_usage; exit; fi
 
+repeat 
+
 while [ ! -z "$1" ]; do
   case "$1" in
      --file|-f)
@@ -82,12 +84,12 @@ case $count in
     repeat; echo "BEFORE:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat
     sed -i -n 'p; /^NUM_INCOMING_CHANNELS/s/^/#PREP/p' ${faxcfg}
     sed -i '/^NUM_INCOMING_CHANNELS/c\NUM_INCOMING_CHANNELS 0' ${faxcfg}
-    repeat; echo "AFTER SED OFF:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat;;
+    repeat; echo "AFTER SED OFF:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat ;;
   On|ON|on)
     repeat; echo "BEFORE:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat
     sed -i '/NUM_INCOMING_CHANNELS.*0/d' ${faxcfg}
     sed -i '/NUM_INCOMING_CHANNELS/s/^#PREP//g' ${faxcfg}
-    repeat; echo "AFTER SED ON WITH OLD NUM:"; grep NUM_INCOMING_CHANNELS ${faxcfg}; repeat;;
+    repeat; echo "AFTER SED ON WITH OLD NUM:"; grep NUM_INCOMING_CHANNELS ${faxcfg} ;;
   ''|*[!0-9]*)
     show_usage;;
   *)
@@ -101,12 +103,11 @@ echo -e "$(repeat)\nWARNING: This script will also restart the commetrex_fax_cli
 
 chown ipbx:ipbx /tmp/.fax.out && chmod u+w /tmp/.fax.out
 
-echo "Currently $(whoami)"
 sudo -i -u ipbx bash << EOF
   echo "Switching now to \$(whoami) and stopping faxclient"
-  /apps/ipbx/commetrexfax/faxclientservices.sh stop
+  /apps/ipbx/commetrexfax/faxclientservices.sh stop >/tmp/f_shutdown.out 2>&1
 EOF
-sleep 3 && echo "Switching back to $(whoami)"
+sleep 3
 
 if [ $(ps aux | grep commetrex_fax_client | grep -v grep | wc -l) -gt 0 ]
 then
@@ -114,14 +115,13 @@ then
   echo "Forcefully killed fax client and proceeding"
 fi
 
-echo "Currently $(whoami)"
 sudo -i -u ipbx bash << EOF
   echo "Switching now to \$(whoami) and starting faxclient"
-  /apps/ipbx/commetrexfax/faxclientservices.sh start >/tmp/startup.out 2>&1
+  /apps/ipbx/commetrexfax/faxclientservices.sh start >/tmp/f_startup.out 2>&1
   ECODE=$?
 EOF
 
-sleep 10 && echo "Switching back to $(whoami)"
+sleep 10
 
 if [ $(ps aux | grep commetrex_fax_client | grep -v grep | wc -l) -gt 0 ]
 then
@@ -130,7 +130,9 @@ fi
 
 /apps/ipbx/commetrexfax/faxclientservices.sh status
 
-egrep -i error\|fail\|denied /tmp/startup.out || echo "NO ERRORS ON STARTUP"
-rm -f /tmp/startup.out
+egrep -i error\|fail\|denied /tmp/f_startup.out || echo "NO ERRORS FOUND ON FAX SERVICES STARTUP LOGS"
+rm -vf /tmp/f_s*.out
+
+repeat
 
 exit ${ECODE}
