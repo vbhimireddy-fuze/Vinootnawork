@@ -34,7 +34,7 @@ function show_usage (){
 }
 
 if [ $(whoami) != "root" ]
-  then echo "Please run this script as root user"
+  then echo "Please run this script as root user" && exit 1
 fi
 
 if [ "$#" -ne 4 ]; then show_usage; exit; fi
@@ -134,10 +134,10 @@ then
   echo "Started commetrex_fax_client.."
 fi
 
-/apps/ipbx/commetrexfax/faxclientservices.sh status
+/apps/ipbx/commetrexfax/faxclientservices.sh check
 
 egrep -i error\|fail\|denied /tmp/f_startup.out || echo "NO ERRORS FOUND ON FAX SERVICES STARTUP LOGS"
-rm -f /tmp/f_s*.out
+rm -f /tmp/{f_startup.out,f_shutdown.out}
 
 repeat
 
