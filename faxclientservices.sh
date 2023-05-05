@@ -407,7 +407,38 @@ elif [ $action == restart ];then
     else
 	echo "SUCCESS: Commetrex Services and Fax Client started." >> $FAXOUT_FILE
     fi    
+
+elif [ $action == safe-restart ];then
+
+    #Wait if check_mk stops
+    while ps aux | grep -i check_mk | grep -q -v grep
+    do
+        sleep 1
+    done
     
+    sleep .5
+    ps aux | grep -i check_mk | grep -v grep || echo "CHECK_MK NOT RUNNING"
+
+    # stop all processes
+    stopAllProcesses
+    checkAllProcessesStopped
+    allProcessesStopped=$?
+    if [ $allProcessesStopped != 0 ];then
+        echo "ERROR: some or all processes did not stop.  Something is wrong.  You will have to manually kill processes." >> $FAXOUT_FILE
+        exitProgram $ERROR_ERROR
+    fi
+
+    # wait just a little bit
+    sleep 10
+
+    actionStart
+    actionStartReturn=$?
+    if [ $actionStartReturn != 0 ];then
+        exitProgram $ERROR_ERROR
+    else
+        echo "SUCCESS: Commetrex Services and Fax Client started." >> $FAXOUT_FILE
+    fi   
+ 
 elif [ $action == stop ];then
 
     stopAllProcesses
